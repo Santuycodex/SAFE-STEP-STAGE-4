@@ -1,0 +1,78 @@
+#include "SoftwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
+
+// Sensor pins
+#define trigDepan 8
+#define echoDepan 9
+#define trigKiri 10
+#define echoKiri 11
+#define trigKanan 12
+#define echoKanan 13
+
+// DFPlayer pins
+static const uint8_t PIN_MP3_TX = 2; // ke RX module
+static const uint8_t PIN_MP3_RX = 3; // ke TX module
+SoftwareSerial softwareSerial(PIN_MP3_RX, PIN_MP3_TX);
+DFRobotDFPlayerMini player;
+
+long readDistanceCM(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long duration = pulseIn(echoPin, HIGH);
+  return duration * 0.034 / 2;
+}
+
+void setup() {
+  Serial.begin(9600);
+  softwareSerial.begin(9600);
+
+  pinMode(trigDepan, OUTPUT);
+  pinMode(echoDepan, INPUT);
+  pinMode(trigKiri, OUTPUT);
+  pinMode(echoKiri, INPUT);
+  pinMode(trigKanan, OUTPUT);
+  pinMode(echoKanan, INPUT);
+
+  if (player.begin(softwareSerial)) {
+    Serial.println("DFPlayer OK");
+    player.volume(20);
+  } else {
+    Serial.println("Connecting to DFPlayer Mini failed!");
+    while (true); // stop di sini kalau gagal
+  }
+}
+
+void loop() {
+  long depan = readDistanceCM(trigDepan, echoDepan);
+  long kiri = readDistanceCM(trigKiri, echoKiri);
+  long kanan = readDistanceCM(trigKanan, echoKanan);
+
+  Serial.println("===============================");
+  Serial.print("Depan: "); Serial.print(depan); Serial.print(" cm | ");
+  Serial.print("Kiri: "); Serial.print(kiri); Serial.print(" cm | ");
+  Serial.print("Kanan: "); Serial.print(kanan); Serial.println(" cm");
+  Serial.println("===============================");
+
+  bool bahayaDepan = depan < 50;
+  bool bahayaKiri = kiri < 30;
+  bool bahayaKanan = kanan < 30;
+
+  static unsigned long lastSoundTime = 0;
+  if (millis() - lastSoundTime > 3000) {  // cek tiap 3 detik
+    if (bahayaKiri) {
+      player.play(1); // contoh file 0001.mp3 = "Di kiri ada halangan"
+    } else if (bahayaKanan) {
+      player.play(2); // contoh file 0002.mp3 = "Di kanan ada halangan"
+    } else if (bahayaDepan) {
+      player.play(3); // contoh file 0003.mp3 = "Di depan ada halangan"
+    } else {
+      player.play(4); // contoh file 0004.mp3 = "Aman"
+    }
+    lastSoundTime = millis();
+  }
+
+  delay(500);
+}
