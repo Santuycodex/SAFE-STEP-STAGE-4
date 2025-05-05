@@ -1,0 +1,43 @@
+#include <HardwareSerial.h>
+#include <TinyGPS++.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+const char* ssid = "CBT3";
+const char* password = "12345678";
+const char* serverName = "192.168.110.152";
+
+HardwareSerial gpsSerial(1);
+TinyGPSPlus gps;
+
+void setup() {
+  Serial.begin(115200);
+  gpsSerial.begin(9600, SERIAL_8N1, 16, 17); // RX, TX
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+}
+
+void loop() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+    if (gps.location.isUpdated()) {
+      float lat = gps.location.lat();
+      float lng = gps.location.lng();
+
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin(serverName);
+        http.addHeader("Content-Type", "application/json");
+
+        String payload = "{\"lat\":" + String(lat, 6) + ",\"lng\":" + String(lng, 6) + "}";
+        int httpResponseCode = http.POST(payload);
+        http.end();
+        Serial.println("Sent data: " + payload);
+      }
+    }
+  }
+}
